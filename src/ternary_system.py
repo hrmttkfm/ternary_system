@@ -104,9 +104,9 @@ class TernaryBinodal:
         #      + np.power(self.phaseL.s * self.f2(),2) / np.power((self.phaseR.comp2.phi - self.phaseL.comp2.phi),4) \
         #      + np.power(self.phaseL.r * self.f3(),2) / np.power((self.phaseR.comp3.phi - self.phaseL.comp3.phi),4) 
         # 頂点付近ではこちらの方が良い
-        return np.power(         self.f1(),2) \
-             + np.power(self.phaseL.s * self.f2(),2) \
-             + np.power(self.phaseL.r * self.f3(),2) 
+        return (np.power(                self.f1(),2) \
+              + np.power(self.phaseL.s * self.f2(),2) \
+              + np.power(self.phaseL.r * self.f3(),2) )
 
     def __costFuncWrapper(self,
             phis: np.ndarray):
