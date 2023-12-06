@@ -1,0 +1,558 @@
+# 2023/12/05に消去リストに追加
+import sys
+import pickle
+import pandas as pd
+import numpy as np
+from scipy.optimize import minimize
+from ternary_diagram import Ternary, default_colors, default_markers
+
+# def slope(x1: float, y1: float, x2: float, y2: float):
+#     return (y2 - y1) / (x2 - x1)
+
+# def interception(x1: float, y1: float, x2: float, y2: float):
+#     return y1 - slope(x1, y1, x2, y2) * x1
+
+# def distance(x1: float, y1: float, x2: float, y2: float):
+#     return np.sqrt( (y2 - y1)**2 + (x2 - x1)**2 )
+
+# def crossPoint(a1: float, b1: float, a2: float, b2: float) -> list:
+#     return - (b1-b2)/(a1-a2), (a1*b2-a2*b1)/(a1-a2)
+
+# class TernaryData:
+#     """3成分系の実験データを取り扱う
+#     """
+#     def __init__(self, polymer = None, solvent = None, non_solvent = None, temperature: str = None):
+#         self.readData(polymer, solvent, non_solvent, temperature)
+#         self.fitFunc = None
+
+#     def readData(self, polymer, solvent, non_solvent, temperature: str = None):
+#         """実験により得られたデータを読み込む
+
+#         Args:
+#             polymer (_type_): ポリマーの体積分率
+#             solvent (_type_): 溶媒の体積分率
+#             non_solvent (_type_): 貧溶媒の体積分率
+#             temperature (str, optional): _description_. Defaults to None.
+#         """
+#         self.polymer = polymer
+#         self.solvent = solvent
+#         self.non_solvent = non_solvent
+#         self.temperature = temperature
+
+#     def fitData(self, deg: int = 1):
+#         """バイノーダル線を多項式関数でフィッティングする
+
+#         Args:
+#             deg (int, optional): 多項式次元. Defaults to 1.
+
+#         Note: 
+#             現状では1次でしかうまくフィッティングできない
+#         """
+#         self.fitFunc = np.poly1d(np.polyfit(x=self.polymer, y=self.solvent, deg=deg))
+
+#     def exportFitFunc(self, filepath: str = "./binodalFitFunc.pkl"):
+#         """バイノーダル線のフィッティング関数をファイルに出力する
+
+#         Args:
+#             filepath (str, optional): 出力するファイルパス Defaults to "./binodalFitFunc.pkl".
+#         """
+#         try:
+#             with open(filepath, 'wb') as f:
+#                 pickle.dump(self.fitFunc, f)
+#         except Exception as e:
+#             print("ファイル出力に失敗しました. ", file=sys.stderr)
+#             print(e, file=sys.stderr)
+#             exit(1)
+
+#     def loadFitFunc(self, file_path: str = "./binodalFitFunc.pkl"):
+#         """エクスポートしたバイノーダル線のフィッティング関数を読み込む
+
+#         Args:
+#             file_path (str, optional): エクスポートしたバイノーダル線のファイルパス. Defaults to "./binodalFitFunc.pkl".
+#         """
+#         if not file_path.split(".")[-1] in ["pkl", "pickle"]:
+#             print("対応しないファイルです. ", file = sys.err)
+#             exit(1)
+#         try:
+#             with open(file_path, 'rb') as f:
+#                 self.fitFunc = pickle.load(f)
+#         except Exception as e:
+#             print('ファイルパスを確認してください. ', file=sys.stderr)
+#             print(e, file=sys.stderr)
+#             sys.exit(1)
+#         self.__calcFitFuncSlopeAndInc()
+
+#     def __calcFitFuncSlopeAndInc(self):
+#         """バイノーダル曲線をフィッティングした直線の傾きと切片を格納する
+#         """
+#         x1 = 0; x2 = 1
+#         y1 = self.fitFunc(x1)
+#         y2 = self.fitFunc(x2)
+#         self.fit_slope = slope(x1, y1, x2, y2)
+#         self.fit_inc   = interception(x1, y1, x2, y2)
+
+#     def isSeparate(self, p: float, s: float, n_s: float) -> bool:
+#         """ある組成の液が相分離するかどうかを判定する
+
+#         Args:
+#             p (float): ポリマー体積分率
+#             s (float): 溶媒体積分率
+#             n_s (float): 貧溶媒体積分率
+
+#         Returns:
+#             bool: バイノーダル線の内側であればTrue
+#         """
+#         if not isinstance(self.fitFunc, type(None)): 
+#             return s < self.fitFunc(p)
+#         else:
+#             print("フィッティング関数が設定されていません.")
+
+#     def deviationDistance(self, 
+#            p1: float, s1: float, n_s1: float, 
+#            p2: float, s2: float, n_s2: float, 
+#     ) -> float:
+#         """吸湿前原液組成と吸湿後原液組成を結ぶ直線と
+#            バイノーダル線の交点から、吸湿後組成までの距離を返す
+
+#         Args:
+#             p1 (float): 初期ポリマー重量分率
+#             s1 (float): 初期溶媒重量分率
+#             n_s1 (float): 初期貧溶媒重量分率
+#             p2 (float): 吸湿後ポリマー重量分率
+#             s2 (float): 吸湿後溶媒重量分率
+#             n_s2 (float): 吸湿後貧溶媒重量分率
+
+#         Returns:
+#             float: 距離
+#         """
+#         # 吸湿前原液組成と吸湿後原液組成を結ぶ直線の傾き
+#         dope_slope = slope(p1, s1, p2, s2)
+#         # 吸湿前原液組成と吸湿後原液組成を結ぶ直線の切片
+#         dope_inc   = interception(p1, s1, p2, s2)
+#         # 交点の組成、ポリマーと溶媒の重量分率
+#         pc, sc     = crossPoint(self.fit_slope, self.fit_inc, dope_slope, dope_inc)
+#         return distance(p2, s2, pc, sc)
+
+class Component:
+    """成分を表すクラス
+    """
+    def __init__(self, nu: float, rho: float, name: str = ""):
+        """コンストラクタ
+
+        Args:
+            nu (float): 成分のモル体積
+            rho (float): 成分の密度
+            name (str): 成分の名前
+        """
+        self.name = name # 名前
+        self.nu   = nu # モル体積
+        self.rho  = rho # 順成分である場合の密度
+        self.phi  = 0. # 体積分率
+    
+    def copy(self):
+        obj_copy = Component(self.nu, self.rho, self.name)
+        obj_copy.phi = self.phi
+        return obj_copy
+
+class Phase:
+    """3成分からなるPhase(相)を表すクラス
+    """
+    def __init__(self, component1: Component, 
+                       component2: Component, 
+                       component3: Component,
+                chi12: any, chi23: any, chi13: any):
+        """コンストラクタ
+
+        Args:
+            component1 (Component): 貧溶媒
+            component2 (Component): 良溶媒
+            component3 (Component): ポリマー
+            chi12 (float): 貧溶媒・良溶媒間のχパラメータ
+            chi23 (float): 良溶媒・ポリマー間のχパラメータ
+            chi13 (float): 貧溶媒・ポリマー間のχパラメータ
+        """
+        self.comp1 = component1 # 貧溶媒
+        self.comp2 = component2 # 良溶媒
+        self.comp3 = component3 # ポリマー
+        self.chi12 = chi12 # χ12
+        self.chi23 = chi23 # χ23
+        self.chi13 = chi13 # χ13
+        self.s = self.comp1.nu / self.comp2.nu # 貧溶媒と良溶媒のモル体積比率
+        self.r = self.comp1.nu / self.comp3.nu # 貧溶媒とポリマーモル体積比率
+        print("s = ",self.s)
+        print("r = ",self.r)
+
+    def copy(self):
+        obj_copy = Phase(self.comp1.copy(), self.comp2.copy(), self.comp3.copy(),
+                        self.chi12, self.chi23, self.chi13)
+        return obj_copy
+
+    def mu1RT(self): 
+        """貧溶媒について, Δμ1=(相中のケミカルポテンシャル)-(純粋なケミカルポテンシャル)
+           を計算する
+
+        Returns:
+            float: Δμ1/RT
+        """
+        chi12, chi23, chi13 = self.calcChiAll()
+        self.comp1.phi = 1. - self.comp2.phi - self.comp3.phi
+        return np.log(self.comp1.phi) + 1 - self.comp1.phi - self.s*self.comp2.phi - self.r*self.comp3.phi \
+            + (chi12*self.comp2.phi + chi13*self.comp3.phi) * (1 - self.comp1.phi) \
+            - self.s*chi23*self.comp2.phi*self.comp3.phi
+
+    def mu2RT(self): 
+        """良溶媒について, Δμ2=(相中のケミカルポテンシャル)-(純粋なケミカルポテンシャル)
+           を計算する
+
+        Returns:
+            float: Δμ2/RT
+        """
+        chi12, chi23, chi13 = self.calcChiAll()
+        self.comp1.phi = 1. - self.comp2.phi - self.comp3.phi
+        return 1/self.s * (self.s*np.log(self.comp2.phi) + self.s - self.comp1.phi - self.s*self.comp2.phi - self.r*self.comp3.phi \
+            + (chi12*self.comp1.phi + self.s*chi23*self.comp3.phi) * (1 - self.comp2.phi) \
+            - chi13*self.comp1.phi*self.comp3.phi)
+
+    def mu3RT(self): 
+        """ポリマーについて, Δμ3=(相中のケミカルポテンシャル)-(純粋なケミカルポテンシャル)
+           を計算する
+
+        Returns:
+            float: Δμ3/RT
+        """
+        chi12, chi23, chi13 = self.calcChiAll()
+        self.comp1.phi = 1. - self.comp2.phi - self.comp3.phi
+        return 1/self.r * (self.r*np.log(self.comp3.phi) + self.r - self.comp1.phi - self.s*self.comp2.phi - self.r*self.comp3.phi \
+            + (chi13*self.comp1.phi + self.s*chi23*self.comp2.phi) * (1 - self.comp3.phi) \
+            - chi12*self.comp1.phi*self.comp2.phi)
+
+    def G22(self):
+        chi12 = self.calcChi12()
+        self.comp1.phi = 1. - self.comp2.phi - self.comp3.phi
+        return 1/self.comp1.phi + self.s/self.comp2.phi - 2*chi12
+
+    def G23(self):
+        chi12 = self.calcChi12()
+        chi13 = self.calcChi13()
+        chi23 = self.calcChi23()
+        self.comp1.phi = 1. - self.comp2.phi - self.comp3.phi
+        return 1/self.comp1.phi - (chi12+chi13) + self.s*chi23
+
+    def G33(self):
+        chi13 = self.calcChi13()
+        self.comp1.phi = 1. - self.comp2.phi - self.comp3.phi
+        return 1/self.comp1.phi + self.r/self.comp3.phi - 2*chi13
+
+    def calcChi12(self):
+        if type(self.chi12) == float:
+            chi12 = self.chi12
+        else:
+            chi12 = self.chi12.val(self.comp1.phi, self.comp2.phi)
+            # chi12 = self.chi12(self.comp1.phi, self.comp2.phi)
+        return chi12
+
+    def calcChi23(self):
+        if type(self.chi23) == float:
+            chi23 = self.chi23
+        else:
+            chi23 = self.chi23.val(self.comp1.phi, self.comp2.phi)
+        return chi23
+
+    def calcChi13(self):
+        if type(self.chi13) == float:
+            chi13 = self.chi13
+        else:
+            chi13 = self.chi13.val(self.comp1.phi, self.comp2.phi)
+        return chi13
+
+    def calcChiAll(self):
+        chi12 = self.calcChi12()
+        chi23 = self.calcChi23()
+        chi13 = self.calcChi13()
+        return chi12, chi23, chi13
+
+class TernarySpinodal:
+    """1. 貧溶媒, 2. 良溶媒, 3. ポリマーの3成分系
+       をFlory-Hugginsモデルを用いて扱うクラス
+    """
+    def __init__(self, phase: Phase):
+        self.phase = phase.copy() 
+        self.bnds = ( # scipy.optimize.minimizeする際の探索範囲
+        (0.00000000001, 0.9999999999), # 良溶媒体積分率
+        )
+
+    def costFunc(self):
+        """コスト関数を計算する
+        """
+        return abs(self.phase.G22()*self.phase.G33() - np.power(self.phase.G23(),2))
+
+    def __costFuncWrapper(self,
+            phi: np.ndarray):
+        """costFuncのラッパーファンクション
+           scipy.optimize.minimizeを使うため
+
+        Args:
+            phi (np.ndarray): 良溶媒の体積分率
+
+        Returns:
+            float: costFunc
+        """
+
+        self.phase.comp2.phi = phi[0]
+        return self.costFunc()
+
+    def spinodal(self, phase_phi3):
+        # 最適化計算
+        res_all = []
+        for i in range(len(phase_phi3)):
+            print(i)
+            self.phase.comp3.phi = phase_phi3[i]
+
+            res = minimize(fun=self.__costFuncWrapper, 
+                # method='Nelder-Mead', # o
+                method='Powell', # x
+                # method='CG', # ×
+                # method='BFGS', # ×
+                # method='Newton-CG', # ×
+                # method='L-BFGS-B', # ×
+                # method='TNC', # ×
+                # method='COBYLA', # ×
+                # method='SLSQP', # o
+                # method='trust-constr' # x
+                # method='dogleg', # x
+                # method='trust-ncg', # x
+                # method='trust-exact', # ×
+                # method='trust-krylov', # ×
+                x0=[(1. - self.phase.comp3.phi)*0.5],
+                bounds=self.bnds,
+                tol=1e-20)#, options={"disp": True})
+            self.phase.comp2.phi = res.x[0]
+            self.phase.comp1.phi = 1. - (self.phase.comp2.phi + self.phase.comp3.phi)
+            res_all.append([
+                self.phase.comp1.phi,
+                self.phase.comp2.phi,
+                self.phase.comp3.phi,
+            ])
+        phis_arr = np.array(res_all, dtype=float) # 全ての点のデータをnumpy配列に変換
+
+        # 各成分の密度を縦ベクトル化
+        rho_arr = np.array([self.phase.comp1.rho,
+                            self.phase.comp2.rho,
+                            self.phase.comp3.rho], dtype=float)
+        rho_arr_tile = np.tile(rho_arr, reps=(len(phis_arr),1))
+
+        # 各点における単位体積当たりの総質量ベクトルを作成し3列に拡張(複製)
+        mass_arr_tile = np.tile(np.dot(phis_arr, rho_arr[:,None]), 3)
+        # 質量分率で表した配列
+        ws_arr = phis_arr * rho_arr_tile / mass_arr_tile
+        return ws_arr
+
+class TernaryBinodal:
+    """1. 貧溶媒, 2. 良溶媒, 3. ポリマーの3成分系
+       をFlory-Hugginsモデルを用いて扱うクラス
+    """
+    def __init__(self, phase: Phase):
+        self.phaseR = phase.copy() # ポリマーリッチ相
+        self.phaseL = phase.copy() # ポリマーリーン相
+        self.bnds = ( # scipy.optimize.minimizeする際の探索範囲
+        (0.00000000001, 0.9999999999), # ポリマーリッチ相の良溶媒体積分率
+        (0.00000000001, 0.9999999999), # ポリマーリッチ相のポリマー体積分率
+        (0.00000000001, 0.9999999999)  # ポリマーリーン相の良溶媒体積分率
+        )
+
+    def costFunc(self):
+        """コスト関数を計算する
+        """
+        # 貧溶媒極値付近ではこちらの方が良い
+        # return np.power(         self.f1(),2) / np.power((self.phaseR.comp1.phi - self.phaseL.comp1.phi),4) \
+        #      + np.power(self.phaseL.s * self.f2(),2) / np.power((self.phaseR.comp2.phi - self.phaseL.comp2.phi),4) \
+        #      + np.power(self.phaseL.r * self.f3(),2) / np.power((self.phaseR.comp3.phi - self.phaseL.comp3.phi),4) 
+        # 頂点付近ではこちらの方が良い
+        return np.power(         self.f1(),2) \
+             + np.power(self.phaseL.s * self.f2(),2) \
+             + np.power(self.phaseL.r * self.f3(),2) 
+
+    def __costFuncWrapper(self,
+            phis: np.ndarray):
+        """costFuncのラッパーファンクション
+           scipy.optimize.minimizeを使うため
+
+        Args:
+            phis (np.ndarray): ポリマーリッチ相の良溶媒、ポリマーの体積分率
+                               ポリマーリーン相の良溶媒体積分率
+
+        Returns:
+            float: costFunc
+        """
+
+        self.phaseR.comp2.phi = phis[0] 
+        self.phaseR.comp3.phi = phis[1] 
+        self.phaseL.comp2.phi = phis[2] 
+        return self.costFunc()
+
+    def f1(self):
+        """ポリマーリッチ相とポリマーリーン相間での
+           貧溶媒ケミカルポテンシャルの差を計算する
+
+        Returns:
+            float: Δμ1^R/RT - Δμ1^L/RT
+        """
+        return self.phaseR.mu1RT() - self.phaseL.mu1RT()
+
+    def f2(self):
+        """ポリマーリッチ相とポリマーリーン相間での
+           良溶媒ケミカルポテンシャルの差を計算する
+
+        Returns:
+            float: Δμ2^R/RT - Δμ2^L/RT
+        """
+        return self.phaseR.mu2RT() - self.phaseL.mu2RT()
+
+    def f3(self):
+        """ポリマーリッチ相とポリマーリーン相間での
+           ポリマーケミカルポテンシャルの差を計算する
+
+        Returns:
+            float: Δμ3^R/RT - Δμ3^L/RT
+        """
+        return self.phaseR.mu3RT() - self.phaseL.mu3RT()
+
+    def binodal(self, phaseL_phi3):
+        # 最適化計算
+        res_all = []
+        for i in range(len(phaseL_phi3)):
+            print(i)
+            self.phaseL.comp3.phi = phaseL_phi3[i]
+
+            res = minimize(fun=self.__costFuncWrapper, 
+                # method='Nelder-Mead', # o
+                # method='Powell', # x
+                # method='CG', # ×
+                # method='BFGS', # ×
+                # method='Newton-CG', # ×
+                # method='L-BFGS-B', # ×
+                # method='TNC', # ×
+                # method='COBYLA', # ×
+                method='SLSQP', # o
+                # method='trust-constr' # x
+                # method='dogleg', # x
+                # method='trust-ncg', # x
+                # method='trust-exact', # ×
+                # method='trust-krylov', # ×
+                x0=[0.2, 0.5, (1. - self.phaseL.comp3.phi)*0.5],
+                bounds=self.bnds,
+                tol=1e-20)#, options={"disp": True})
+            self.phaseR.comp2.phi, self.phaseR.comp3.phi, self.phaseL.comp2.phi = res.x
+            self.phaseR.comp1.phi = 1. - (self.phaseR.comp2.phi + self.phaseR.comp3.phi)
+            self.phaseL.comp1.phi = 1. - (self.phaseL.comp2.phi + self.phaseL.comp3.phi)
+            res_all.append([
+                self.phaseR.comp1.phi,
+                self.phaseR.comp2.phi,
+                self.phaseR.comp3.phi,
+                self.phaseL.comp1.phi,
+                self.phaseL.comp2.phi,
+                self.phaseL.comp3.phi
+            ])
+        arr = np.array(res_all, dtype=float) # 全ての点のデータをnumpy配列に変換
+        rich = arr[:, 0:3] # 0~1列目を抽出 -> ポリマーリッチ相の良溶媒とポリマー
+        lean = arr[:, 3:] # 2列目を抽出 -> ポリマーリーン相の良溶媒
+        # リッチ相とリーン相のデータを縦に結合
+        phis_arr = np.vstack((rich,lean))
+
+        # 各成分の密度を縦ベクトル化
+        rho_arr = np.array([self.phaseR.comp1.rho,
+                            self.phaseR.comp2.rho,
+                            self.phaseR.comp3.rho], dtype=float)
+        rho_arr_tile = np.tile(rho_arr, reps=(len(phis_arr),1))
+
+        # 各点における単位体積当たりの総質量ベクトルを作成し3列に拡張(複製)
+        mass_arr_tile = np.tile(np.dot(phis_arr, rho_arr[:,None]), 3)
+        # 質量分率で表した配列
+        ws_arr = phis_arr * rho_arr_tile / mass_arr_tile
+        return ws_arr
+
+    def tieLineFromBinodal(self, binodal_arr):
+        """
+
+        Args:
+            binodal_arr (_type_): _description_
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            _type_: _description_
+        """
+        if len(binodal_arr) % 2 != 0:
+            # 偶数行でないとエラー
+            print("Binodal Data must have even length")
+            raise ValueError
+        else:
+            rich, lean = np.split(binodal_arr,2)
+            tie_arr = np.hstack((rich, lean))
+            return tie_arr
+
+
+if __name__ == "__main__":
+    # n_solvent = Component(18, 1., "Water")
+    # solvent   = Component(96.6, 1.026, "NMP")
+    # polymer   = Component(43795.6, 1.37, "PES")
+    # phase_init = Phase(n_solvent, solvent, polymer, 0.5, 0.279, 1.7)
+
+    # CA/Acetone/H2O系
+    # n_solvent = Component(1, 1., "Water")
+    # solvent   = Component(4, 0.784, "Acetone")
+    # polymer   = Component(500, 1.3, "Acetylcellulose")
+    # phase_init = Phase(n_solvent, solvent, polymer, -0.3, 0.2, 1.)
+
+    # EVAL/DMSO/H2O系
+    # n_solvent = Component(18, 1., "Water")
+    # solvent   = Component(71.29, 1.096, "DMSO")
+    # polymer   = Component(47863, 1.17, "EVOH")
+    # phase_init = Phase(n_solvent, solvent, polymer, 0.5927, -1.2 + 0.02, 1.956)
+
+    # PSF/NMP/H2O系
+    # Y. Yip, A.J. McHug, Journal of Membrane Science, 271, p.163-176 (2006)
+    n_solvent = Component(18, 1., "Water")
+    solvent   = Component(71.29, 1.03, "NMP")
+    polymer   = Component(20270, 1.24, "PSF")
+    # phase_init = Phase(n_solvent, solvent, polymer, lambda x, y :  0.785 + y/(x+y) * 0.665, 0.24, 2.5)
+    phase_init = Phase(n_solvent, solvent, polymer, 0.785 + 0.5 * 0.665, 0.24, 2.5)
+
+    binodal_system    = TernaryBinodal(phase_init)
+    spinodal_system    = TernarySpinodal(phase_init)
+
+    # バイノーダル曲線の計算
+    binodal = pd.DataFrame(
+        binodal_system.binodal(
+            # np.hstack((np.logspace(-38, -2.5, 60),np.logspace(-2.5, -1.2, 6)))) # CA/Acetone/H2O
+            # np.hstack((np.logspace(-300, -2.5, 60),np.logspace(-2.3, -2.1, 3)))) # EVAL/DMSO/H2O
+            np.hstack((np.logspace(-150, -2.5, 200),np.logspace(-2.4, -1.9, 4)))) # PSF/NMP/H2O
+                        , columns = ['貧溶媒', '良溶媒', 'ポリマー'])
+    binodal.to_excel("binodal.xlsx")
+    tie = pd.DataFrame(binodal_system.tieLineFromBinodal(binodal.values), columns = ['R貧溶媒', 'R良溶媒', 'Rポリマー', 'L貧溶媒', 'L良溶媒', 'Lポリマー'])
+    tie.to_excel("tie_line.xlsx")
+
+    # スピノーダル曲線の計算
+    # spinodal = pd.DataFrame(
+    #     spinodal_system.spinodal(
+    #         np.linspace(0.001, 0.6, 100))
+    #                     , columns = ['貧溶媒', '良溶媒', 'ポリマー'])
+    # spinodal.to_excel("spinodal.xlsx")
+
+    tr = Ternary(polymer.name, solvent.name, n_solvent.name)
+    # タイラインのプロット
+    tie = pd.read_excel("tie_line.xlsx")
+    tr.tieLine(tie["Rポリマー"], tie["R良溶媒"], tie["R貧溶媒"],
+               tie["Lポリマー"], tie["L良溶媒"], tie["L貧溶媒"])
+    # スピノーダルラインのプロット
+    # spinodal = pd.read_excel("spinodal.xlsx")
+    # tr.spinodalLine(spinodal["ポリマー"], spinodal["良溶媒"], spinodal["貧溶媒"], "スピノーダル")
+    # バイノーダルラインのプロット
+    binodal = pd.read_excel("binodal.xlsx")
+    tr.binodalLine(binodal["ポリマー"], binodal["良溶媒"], binodal["貧溶媒"], "バイノーダル")
+
+    prefix = "{}_{}_{}".format(polymer.name, solvent.name, n_solvent.name)
+    tr.saveHTML("{}.html".format(prefix))
+    tr.saveStaticImage("{}.svg".format(prefix))
+

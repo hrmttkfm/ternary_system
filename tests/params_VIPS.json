@@ -1,0 +1,45 @@
+{
+    "Air Gap": {
+        "Length": 0.3,
+        "Diameter": 0.03,
+        "Temperature": 56,
+        "Pressure": 760
+    },
+    "Fiber": {
+        "Init Polymer Fraction": 0.38,
+        "Init Solvent Fraction": 0.62,
+        "Init Non-Solvent Fraction": 0,
+        "Inner Diameter": 5.5e-04,
+        "Outer Diameter": 1.15e-03
+    },
+    "Coagulation Bath": {
+        "Temperature": 27,
+        "Polymer Fraction": 0,
+        "Solvent Fraction": 0,
+        "Non-Solvent Fraction": 1
+    },
+    "Other Conditions": {
+        "Spinning Speed": 20
+    },
+    "Physical Properties": {
+        "Dry Air": {
+            "Density": 1.073
+        },
+        "Solvent": {
+            "Density": 1030,
+            "Molecular Weight": 99.13
+        },
+        "Non-Solvent": {
+            "Density": 1000,
+            "Molecular Weight": 18
+        },
+        "Dope": {
+            "Density": 1185
+        }
+    },
+    "Transport Properties": {
+        "Mass Transfer AG to Fiber Surface": 100,
+        "Mass Transfer CB to AG": 50,
+        "Diffusion Film Thickness": 3.0e-06
+    }
+}

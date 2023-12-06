@@ -1,0 +1,40 @@
+# テストプログラムに影響を与えるので変更しないこと
+# DO NOT CHANGE !!
+Air Gap:
+  Length                       : 0.3  # m
+  Diameter                     : 0.03 # m
+  Temperature                  : 56   # ℃
+  Pressure                     : 760  # mmHg
+
+Fiber:
+  Init Polymer Fraction        : 0.38 # -
+  Init Solvent Fraction        : 0.62 # -
+  Init Non-Solvent Fraction    : 0    # -
+  Inner Diameter               : 5.5e-04  # m
+  Outer Diameter               : 1.15e-03 # m
+
+Coagulation Bath:
+  Temperature                  : 27   # ℃
+  Polymer Fraction             : 0 # -
+  Solvent Fraction             : 0 # -
+  Non-Solvent Fraction         : 1 # -
+
+Other Conditions:
+  Spinning Speed               : 20   # m/min
+
+Physical Properties:
+  Dry Air:
+    Density                    : 1.073 # kg/m3
+  Solvent:
+    Density                    : 1030 # kg/m3
+    Molecular Weight           : 99.13 # g/mol
+  Non-Solvent:
+    Density                    : 1000 # kg/m3
+    Molecular Weight           : 18 # g/mol
+  Dope:
+    Density                    : 1185 # kg/m3
+
+Transport Properties:
+  Mass Transfer AG to Fiber Surface: 100 # kf kg/m2/hr
+  Mass Transfer CB to AG           : 50  # kb kg/m2/hr
+  Diffusion Film Thickness         : 3.0e-06 # m
